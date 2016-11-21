@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+$LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
+
+require "thor"
+require "yaml"
+require "recover"
+require "tablelize"
+require "aws-sdk"
+
+
+module Recover
+  class Cli < Thor
+
+    desc "version", "Shows this tool's version"
+    def version
+      puts "v#{Recover::VERSION}"
+    end
+
+    desc "envs", "Shows the configured environments"
+    def envs
+      rows = [["ENV"]]
+      @envs.each do |env|
+        rows << [env]
+      end
+
+      Tablelize::table rows
+    end
+
+    desc "dbs ENV", "Shows the databases available on an environment"
+    def dbs env
+      rows = [["ENV"]]
+      @envs.each do |env|
+        rows << [env]
+      end
+
+      Tablelize::table rows
+    end
+
+    desc "dumps ENV DB", "Show dumps for a database"
+    def dumps env = nil, db = nil
+      s3  = ::Aws::S3::Resource.new
+      bucket = s3.bucket("740872874188-database-backups")
+      bucket.objects(prefix: 'payment-dev/mysql/spidcash/2016/11/20/').each do |obj|
+        puts "#{obj.key} => #{obj.etag}"
+      end
+      # res = s3.list_buckets
+      # map = res.buckets.map(&:name)
+      # p map
+    end
+
+    private
+    def initialize *args
+      super
+      _load_config
+      @envs = @config.fetch("envs", [])
+    end
+
+    def _load_config
+      @file   = "./recover.yaml"
+      @config = YAML.load_file(@file)
+    end
+  end
+end
+
+Recover::Cli.start ARGV
